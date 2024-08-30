@@ -1,7 +1,6 @@
 import pandas as pd
 from docx import Document
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.shared import Pt
+from docx.shared import Pt, Inches
 from docx.oxml.ns import qn
 import argparse
 
@@ -15,15 +14,22 @@ def set_table_font(table):
                     run._element.rPr.rFonts.set(qn('w:eastAsia'), 'Calibri')
                     run.font.size = Pt(10)
 
+# Function to set column widths
+def set_column_widths(table, col_widths):
+    for i, width in enumerate(col_widths):
+        for row in table.rows:
+            cell = row.cells[i]
+            cell.width = width
+
 # Function to print a title or ASCII art
 def print_title():
     title = """
-    ________             __                 __                
-   /  _____/_____     __|  | ____    ____ |  | __ __  ____  
-  /   \  __\__  \   / __ |/ __ \  / ___\|  | |  |/ ___\ 
-  \    \_\  \/ __ \_/ /_/ \  ___/ / /_/  >  |_|  \  \___ 
+    ________             __                 __
+   /  _____/_____     __|  | ____    ____ |  | __ __  ____
+  /   \  __\__  \   / __ |/ __ \  / ___\|  | |  |/ ___\
+  \    \_\  \/ __ \_/ /_/ \  ___/ / /_/  >  |_|  \  \___
    \______  (____  /\____/ \___  >___  /  /____/  /\___  /
-          \/    \/      \/     \/     \/          \/    
+          \/    \/      \/     \/     \/          \/
     Script created by Sanskar Kalra
     """
     print(title)
@@ -59,9 +65,6 @@ header_mapping = {
 # Define the extra rows to be added (excluding the ones already mapped)
 extra_rows = [
     'Detailed observation / Vulnerable point',
-    'Control Objective',
-    'Control Name',
-    'Audit Requirement',
     'New or Repeat observation',
     'Management Comment',
     'Final Status'
@@ -75,9 +78,6 @@ combined_order = [
     'Detailed observation / Vulnerable point',
     'CVE/CWE',
     'Impact',
-    'Control Objective',
-    'Control Name',
-    'Audit Requirement',
     'Severity',
     'Recommendation',
     'Reference',
@@ -89,15 +89,24 @@ combined_order = [
 # Create a new Word document
 doc = Document()
 
+# Set the page orientation to landscape
+section = doc.sections[0]
+new_width, new_height = section.page_height, section.page_width
+section.page_width = new_width
+section.page_height = new_height
+
 # Add a title to the document
 doc.add_heading('Vulnerability Report', level=1)
 
 # Add data to the document, each observation in a new table
 for index, row in df.iterrows():
     table = doc.add_table(rows=1, cols=2)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
     table.style = 'Table Grid'
+
+    # Set initial column widths (adjust as needed)
+    col_widths = [Inches(1.5), Inches(6)]  # [header_width, details_width]
+    set_column_widths(table, col_widths)
 
     # Add the headers to the first row of the table
     hdr_cells = table.rows[0].cells
@@ -106,9 +115,7 @@ for index, row in df.iterrows():
 
     # Add the data rows to the table in the specified order
     for word_header in combined_order:
-        if word_header == 'Control Objective' or word_header == 'Control Name' or word_header == 'Audit Requirement':
-            value = 'N/A'
-        elif word_header == 'New or Repeat observation':
+        if word_header == 'New or Repeat observation':
             value = 'New observation'
         elif word_header == 'Final Status':
             value = 'Remediated and Closed ()'
